@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sana Bir Sorum Var... ❤️</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Playfair Display & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js & GLTFLoader (r128) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #090412;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-serif-romantic {
+            font-family: 'Playfair Display', serif;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: rgba(18, 10, 32, 0.55);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 192, 235, 0.18);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        .glass-pink {
+            background: linear-gradient(135deg, rgba(45, 16, 62, 0.78), rgba(22, 10, 36, 0.85));
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(244, 114, 182, 0.35);
+            box-shadow: 0 0 50px rgba(192, 38, 211, 0.3);
+        }
+
+        /* Animations */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(236, 72, 153, 0.5); }
+            50% { box-shadow: 0 0 38px rgba(236, 72, 153, 0.9); }
+        }
+        .btn-glow {
+            animation: pulseGlow 2.5s infinite;
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: rgba(255, 220, 240, 0.75);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 15;
+            box-shadow: 0 0 8px rgba(244, 114, 182, 0.8);
+            transition: opacity 0.3s;
+        }
+
+        /* Touch D-pad active state */
+        .dpad-btn:active {
+            transform: scale(0.92);
+            background: rgba(236, 72, 153, 0.45);
+        }
+    </style>
+</head>
+<body class="text-rose-50">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Subtle Center Dot -->
+    <div id="crosshair" class="opacity-0"></div>
+
+    <!-- TOP-LEFT: Collapsible Custom .glb Bridge Upload Panel -->
+    <div class="fixed top-4 left-4 z-30 flex flex-col items-start gap-2">
+        <button id="toggle-glb-panel" class="glass-panel hover:bg-white/10 text-rose-100 text-xs sm:text-sm font-medium px-3.5 py-2.5 rounded-full flex items-center gap-2 transition cursor-pointer">
+            <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            <span>Kendi .glb Köprünü Yükle</span>
+            <svg id="glb-chevron" class="w-3.5 h-3.5 text-rose-300 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
+
+        <div id="glb-panel-content" class="hidden glass-panel rounded-2xl p-4 w-72 sm:w-80 text-xs text-rose-100/90 space-y-3 transition-all">
+            <p class="leading-relaxed text-rose-200/80">
+                Sahnedeki varsayılan romantik köprüyü kendi özel 3D <code class="text-pink-300 font-semibold">.glb</code> modelinle değiştirebilirsin. Model otomatik ölçeklenip nehir üzerine yerleştirilir.
+            </p>
+            <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-pink-400/40 hover:border-pink-400 rounded-xl cursor-pointer bg-white/5 hover:bg-white/10 transition">
+                <div class="flex flex-col items-center justify-center pt-2 pb-2 text-center px-2">
+                    <span class="text-pink-300 font-semibold mb-1">Dosya Seç (.glb)</span>
+                    <span id="glb-file-name" class="text-[11px] text-rose-200/70 truncate max-w-[220px]">Henüz dosya seçilmedi</span>
+                </div>
+                <input id="glb-file-input" type="file" accept=".glb" class="hidden" />
+            </label>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <span id="glb-status" class="text-[11px] text-emerald-300 hidden">Köprü güncellendi!</span>
+                <button id="reset-bridge-btn" class="ml-auto text-[11px] text-rose-300 hover:text-white underline cursor-pointer hidden">
+                    Varsayılana Dön
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP-RIGHT: Stage Indicator & Audio Mute Toggle -->
+    <div class="fixed top-4 right-4 z-30 flex items-center gap-2.5">
+        <div id="stage-badge" class="hidden sm:flex glass-panel px-4 py-2 rounded-full text-xs font-medium text-pink-200 items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-pink-400 animate-ping"></span>
+            <span id="stage-text">1. Aşama: Romantik Köprü</span>
+        </div>
+
+        <button id="audio-toggle-btn" title="Müziği Aç/Kapat" class="glass-panel hover:bg-white/10 text-rose-100 p-2.5 rounded-full transition cursor-pointer flex items-center justify-center">
+            <!-- Sound On Icon -->
+            <svg id="icon-sound-on" class="w-5 h-5 text-pink-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+            </svg>
+            <!-- Sound Off Icon -->
+            <svg id="icon-sound-off" class="w-5 h-5 text-rose-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- ROMANTIC FLOATING CHECKPOINT NOTE OVERLAY -->
+    <div id="romantic-note-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-20 w-[90%] max-w-xl pointer-events-none transition-all duration-700 opacity-0 transform -translate-y-4">
+        <div class="glass-panel rounded-2xl px-6 py-4 text-center border-pink-400/30 shadow-2xl">
+            <p id="romantic-note-text" class="font-serif-romantic italic text-lg sm:text-2xl text-rose-100 drop-shadow">
+                "Seninle geçirdiğim her an..."
+            </p>
+        </div>
+    </div>
+
+    <!-- START / PAUSE INSTRUCTION OVERLAY -->
+    <div id="start-overlay" class="fixed inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 transition-opacity duration-500">
+        <div class="glass-pink rounded-3xl p-7 sm:p-10 max-w-md w-full text-center space-y-6 animate-float">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-pink-500/20 border border-pink-400/40 text-3xl shadow-inner">
+                ✨💜✨
+            </div>
+            <div class="space-y-2">
+                <h1 class="font-serif-romantic text-3xl sm:text-4xl font-bold text-white tracking-wide">
+                    Yıldızların Altında
+                </h1>
+                <p class="text-sm sm:text-base text-rose-200/90 leading-relaxed">
+                    Köprüyü geç, fenerlerle aydınlanan bahçe yolunda yürü ve mor portalın ardındaki sürprize ulaş...
+                </p>
+            </div>
+
+            <div class="bg-black/30 rounded-2xl p-4 text-xs sm:text-sm text-rose-100/90 space-y-1.5 border border-white/10">
+                <p class="font-semibold text-pink-300">Başlamak için tıkla</p>
+                <p>Yürümek için <span class="px-1.5 py-0.5 bg-white/15 rounded font-mono">W, A, S, D</span> veya <span class="px-1.5 py-0.5 bg-white/15 rounded font-mono">Yön Tuşları</span></p>
+                <p class="text-[11px] text-rose-300/80">Etrafa bakmak için fareyi hareket ettir (veya ekrana dokunup sürükle)</p>
+            </div>
+
+            <button id="start-btn" class="w-full py-3.5 px-6 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-semibold text-base sm:text-lg shadow-lg btn-glow transition transform hover:scale-[1.02] cursor-pointer">
+                Yolculuğa Başla ❤️
+            </button>
+        </div>
+    </div>
+
+    <!-- IN-GAME BOTTOM CONTROLS (Touch / Mouse D-Pad & Helper Hint) -->
+    <div id="hud-controls" class="fixed bottom-4 inset-x-4 z-30 flex items-end justify-between pointer-events-none opacity-0 transition-opacity duration-500">
+        <!-- Helper text on bottom left -->
+        <div class="hidden md:block glass-panel rounded-full px-4 py-2 text-xs text-rose-200/85 pointer-events-auto">
+            Yürümek için <strong class="text-pink-300">W, A, S, D</strong> / Yön Tuşları • Bakmak için Fareyi Sürükle veya Tıkla
+        </div>
+
+        <!-- On-Screen Touch / Click Movement Pad (Bottom Right) -->
+        <div class="ml-auto pointer-events-auto grid grid-cols-3 gap-1.5 p-2 rounded-2xl glass-panel">
+            <div></div>
+            <button id="btn-move-forward" aria-label="İleri" class="dpad-btn w-12 h-12 sm:w-13 sm:h-13 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-rose-100 transition cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path></svg>
+            </button>
+            <div></div>
+
+            <button id="btn-move-left" aria-label="Sol" class="dpad-btn w-12 h-12 sm:w-13 sm:h-13 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-rose-100 transition cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <button id="btn-move-backward" aria-label="Geri" class="dpad-btn w-12 h-12 sm:w-13 sm:h-13 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-rose-100 transition cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <button id="btn-move-right" aria-label="Sağ" class="dpad-btn w-12 h-12 sm:w-13 sm:h-13 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-rose-100 transition cursor-pointer">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- FINALE: ROMANTIC CONFESSION MODAL -->
+    <div id="confession-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-purple-950/40 backdrop-blur-md transition-all duration-700 opacity-0">
+        <div id="confession-card" class="glass-pink rounded-3xl p-8 sm:p-11 max-w-lg w-full text-center space-y-6 relative overflow-visible transform scale-95 transition-transform duration-500">
+            <!-- Decorative Glow -->
+            <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-4xl shadow-2xl border-2 border-white/30 animate-bounce">
+                💖
+            </div>
+
+            <div class="pt-6 space-y-3">
+                <p class="text-xs uppercase tracking-[0.25em] text-pink-300 font-semibold">
+                    Sonsuzluğa Açılan Kapı
+                </p>
+                <h2 id="confession-title" class="font-serif-romantic text-3xl sm:text-5xl font-bold text-white leading-tight">
+                    Benimle Çıkar Mısın? ❤️
+                </h2>
+                <p id="confession-subtitle" class="text-sm sm:text-base text-rose-100/90 leading-relaxed pt-1">
+                    Attığım her adımda, baktığım her yıldızda seni gördüm. Hayatımın en güzel hikayesini seninle yazmak istiyorum...
+                </p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="confession-buttons" class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-3 relative min-h-[64px]">
+                <button id="yes-btn" class="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-rose-500 via-pink-500 to-fuchsia-600 hover:from-rose-400 hover:to-fuchsia-500 text-white font-bold text-lg shadow-xl btn-glow transition transform hover:scale-110 cursor-pointer z-10">
+                    EVET! 💖
+                </button>
+
+                <button id="no-btn" class="px-6 py-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 text-rose-200 text-sm font-medium transition-all duration-200 cursor-pointer">
+                    Hayır
+                </button>
+            </div>
+
+            <!-- Celebration Message (Shown after clicking EVET) -->
+            <div id="celebration-message" class="hidden space-y-4 pt-2">
+                <div class="p-4 rounded-2xl bg-pink-500/20 border border-pink-300/40">
+                    <p class="font-serif-romantic text-2xl sm:text-3xl text-white font-bold">
+                        Dünyanın En Mutlu İnsanı Oldum! ✨🥂
+                    </p>
+                    <p class="text-sm text-rose-100 mt-2">
+                        Seninle her an bir masal gibi... İyi ki varsın sevgilim! ❤️
+                    </p>
+                </div>
+                <button id="explore-more-btn" class="text-xs text-pink-300 hover:text-white underline cursor-pointer">
+                    Yıldızlı gökyüzünü izlemeye devam et
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. PROCEDURAL AMBIENT MUSIC (WEB AUDIO API)
+        // ==========================================
+        class RomanticAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.isPlaying = false;
+                this.masterGain = null;
+                this.chimeInterval = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.setValueAtTime(0.28, this.ctx.currentTime);
+                this.masterGain.connect(this.ctx.destination);
+
+                this.startAmbientPad();
+                this.startChimes();
+                this.isPlaying = true;
+            }
+
+            startAmbientPad() {
+                // Warm dreamy pad chord (Fmaj7 / Am9 dreamy voicings)
+                const freqs = [174.61, 220.00, 261.63, 329.63, 392.00]; // F3, A3, C4, E4, G4
+                freqs.forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const filter = this.ctx.createBiquadFilter();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+                    osc.frequency.setValueAtTime(f, this.ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(420, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0.045, this.ctx.currentTime);
+
+                    // Subtle LFO for breathing warmth
+                    const lfo = this.ctx.createOscillator();
+                    const lfoGain = this.ctx.createGain();
+                    lfo.frequency.setValueAtTime(0.12 + idx * 0.03, this.ctx.currentTime);
+                    lfoGain.gain.setValueAtTime(0.018, this.ctx.currentTime);
+                    lfo.connect(lfoGain);
+                    lfoGain.connect(gain.gain);
+                    lfo.start();
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start();
+                });
+            }
+
+            startChimes() {
+                // Pentatonic romantic harp/bell notes
+                const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66];
+                this.chimeInterval = setInterval(() => {
+                    if (this.isMuted || !this.ctx || this.ctx.state !== 'running') return;
+                    if (Math.random() > 0.65) return;
+
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    const note = scale[Math.floor(Math.random() * scale.length)];
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(note, now);
+
+                    gain.gain.setValueAtTime(0.001, now);
+                    gain.gain.exponentialRampToValueAtTime(0.06, now + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
+
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(now);
+                    osc.stop(now + 3.3);
+                }, 1400);
+            }
+
+            playCelebrationChord() {
+                if (!this.ctx || this.isMuted) return;
+                const notes = [523.25, 659.25, 783.99, 987.77, 1046.50, 1318.51];
+                notes.forEach((freq, i) => {
+                    const now = this.ctx.currentTime + i * 0.09;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.001, now);
+                    gain.gain.exponentialRampToValueAtTime(0.11, now + 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.8);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(now);
+                    osc.stop(now + 2.9);
+                });
+            }
+
+            toggleMute() {
+                if (!this.ctx) this.init();
+                this.isMuted = !this.isMuted;
+                if (this.masterGain) {
+                    this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.28, this.ctx.currentTime, 0.1);
+                }
+                return this.isMuted;
+            }
+
+            resume() {
+                if (!this.ctx) {
+                    this.init();
+                } else if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+        }
+
+        const audioEngine = new RomanticAudioEngine();
+
+        // ==========================================
+        // 2. THREE.JS SCENE SETUP & ATMOSPHERE
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x160a28, 0.014);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 300);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        container.appendChild(renderer.domElement);
+
+        // --- TWILIGHT / STARRY SUNSET SKY DOME (SHADER) ---
+        const skyGeo = new THREE.SphereGeometry(180, 32, 32);
+        const skyMat = new THREE.ShaderMaterial({
+            side: THREE.BackSide,
+            depthWrite: false,
+            uniforms: {
+                topColor: { value: new THREE.Color(0x090418) },
+                midColor: { value: new THREE.Color(0x2e1049) },
+                horizonColor: { value: new THREE.Color(0xd96b70) },
+                sunDirection: { value: new THREE.Vector3(0, 0.12, -1).normalize() }
+            },
+            vertexShader: `
+                varying vec3 vWorldPosition;
+                void main() {
+                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPosition.xyz;
+                    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 topColor;
+                uniform vec3 midColor;
+                uniform vec3 horizonColor;
+                uniform vec3 sunDirection;
+                varying vec3 vWorldPosition;
+                void main() {
+                    vec3 dir = normalize(vWorldPosition);
+                    float h = clamp(dir.y, 0.0, 1.0);
+                    vec3 col = mix(horizonColor, midColor, smoothstep(0.0, 0.28, h));
+                    col = mix(col, topColor, smoothstep(0.25, 0.85, h));
+                    float sunAmt = max(dot(dir, sunDirection), 0.0);
+                    col += vec3(1.0, 0.55, 0.65) * pow(sunAmt, 12.0) * 0.45;
+                    gl_FragColor = vec4(col, 1.0);
+                }
+            `
+        });
+        const skyDome = new THREE.Mesh(skyGeo, skyMat);
+        scene.add(skyDome);
+
+        // --- STARFIELD ---
+        const starCount = 1800;
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            const r = 130 + Math.random() * 40;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random()); // Upper hemisphere
+            starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i * 3 + 1] = r * Math.cos(phi) + 5;
+            starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({
+            color: 0xffe8f7,
+            size: 0.75,
+            transparent: true,
+            opacity: 0.85
+        });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // --- LIGHTING ---
+        const hemiLight = new THREE.HemisphereLight(0xffb6d9, 0x1b0e30, 0.65);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xff9eb5, 0.85);
+        dirLight.position.set(15, 28, -45);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.near = 1;
+        dirLight.shadow.camera.far = 120;
+        const d = 35;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // ==========================================
+        // 3. TERRAIN, RIVER, BRIDGE, WALKWAY & PORTAL
+        // ==========================================
+        // Layout along -Z axis:
+        // Player Start: z = 14
+        // River Gap: z = 6 to z = -6 (centered at z = 0)
+        // Bridge spans z = 7 to z = -7
+        // Garden Walkway: z = -7 to z = -46
+        // Stone Archway & Purple Portal: z = -47
+
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x16241b,
+            roughness: 0.9,
+            metalness: 0.05
+        });
+
+        // South Bank (Before Bridge: z = 5 to 40)
+        const southBank = new THREE.Mesh(new THREE.BoxGeometry(90, 4, 36), groundMat);
+        southBank.position.set(0, -2, 23);
+        southBank.receiveShadow = true;
+        scene.add(southBank);
+
+        // North Bank (Garden Walkway: z = -5 to -75)
+        const northBank = new THREE.Mesh(new THREE.BoxGeometry(90, 4, 70), groundMat);
+        northBank.position.set(0, -2, -40);
+        northBank.receiveShadow = true;
+        scene.add(northBank);
+
+        // Glowing Reflective Water Stream (z = -6 to +6)
+        const waterGeo = new THREE.PlaneGeometry(110, 14, 64, 16);
+        const waterMat = new THREE.MeshStandardMaterial({
+            color: 0x1c1444,
+            emissive: 0x26124d,
+            emissiveIntensity: 0.55,
+            roughness: 0.12,
+            metalness: 0.85
+        });
+        const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+        waterMesh.rotation.x = -Math.PI / 2;
+        waterMesh.position.set(0, -0.75, 0);
+        scene.add(waterMesh);
+
+        // --- STAGE 1: THE ARCHED ROMANTIC BRIDGE ---
+        const bridgeContainer = new THREE.Group();
+        scene.add(bridgeContainer);
+
+        function buildDefaultBridge() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3422, roughness: 0.75 });
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6b6478, roughness: 0.8 });
+            const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xf5b971, emissive: 0x59320a, roughness: 0.35 });
+
+            const bridgeLength = 14.4;
+            const bridgeWidth = 3.8;
+            const segments = 28;
+
+            // Arched Planks
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments; // 0 to 1
+                const z = 7.2 - t * bridgeLength;
+                const archY = Math.sin(t * Math.PI) * 1.35;
+
+                const plank = new THREE.Mesh(
+                    new THREE.BoxGeometry(bridgeWidth, 0.22, (bridgeLength / segments) * 0.92),
+                    i % 2 === 0 ? woodMat : stoneMat
+                );
+                plank.position.set(0, archY, z);
+                // Tilt plank along arch tangent
+                const slope = Math.cos(t * Math.PI) * 1.35 * Math.PI / bridgeLength;
+                plank.rotation.x = slope;
+                plank.castShadow = true;
+                plank.receiveShadow = true;
+                group.add(plank);
+            }
+
+            // Side Arch Beams & Railings
+            [-1, 1].forEach(side => {
+                const xPos = side * (bridgeWidth / 2 - 0.15);
+                const railPoints = [];
+                const basePoints = [];
+
+                for (let i = 0; i <= 20; i++) {
+                    const t = i / 20;
+                    const z = 7.2 - t * bridgeLength;
+                    const archY = Math.sin(t * Math.PI) * 1.35;
+                    basePoints.push(new THREE.Vector3(xPos, archY, z));
+                    railPoints.push(new THREE.Vector3(xPos, archY + 1.05, z));
+
+                    // Vertical balusters
+                    if (i % 2 === 0) {
+                        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.05, 8), woodMat);
+                        post.position.set(xPos, archY + 0.52, z);
+                        post.castShadow = true;
+                        group.add(post);
+                    }
+                }
+
+                const railCurve = new THREE.CatmullRomCurve3(railPoints);
+                const railGeo = new THREE.TubeGeometry(railCurve, 24, 0.08, 8, false);
+                const railMesh = new THREE.Mesh(railGeo, goldTrimMat);
+                railMesh.castShadow = true;
+                group.add(railMesh);
+
+                const baseCurve = new THREE.CatmullRomCurve3(basePoints);
+                const baseGeo = new THREE.TubeGeometry(baseCurve, 24, 0.14, 8, false);
+                const baseMesh = new THREE.Mesh(baseGeo, stoneMat);
+                group.add(baseMesh);
+
+                // Bridge Entrance & Exit Pillars with Warm Lanterns
+                [7.1, -7.1].forEach(endZ => {
+                    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.5, 0.45), stoneMat);
+                    pillar.position.set(xPos, 0.75, endZ);
+                    pillar.castShadow = true;
+                    group.add(pillar);
+
+                    const orb = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.18, 12, 12),
+                        new THREE.MeshBasicMaterial({ color: 0xffcf87 })
+                    );
+                    orb.position.set(xPos, 1.65, endZ);
+                    group.add(orb);
+                });
+            });
+
+            return group;
+        }
+
+        let defaultBridgeGroup = buildDefaultBridge();
+        bridgeContainer.add(defaultBridgeGroup);
+        let customBridgeModel = null;
+
+        // --- GLB BRIDGE LOADER LOGIC ---
+        const glbLoader = new THREE.GLTFLoader();
+        const glbFileInput = document.getElementById('glb-file-input');
+        const glbFileName = document.getElementById('glb-file-name');
+        const glbStatus = document.getElementById('glb-status');
+        const resetBridgeBtn = document.getElementById('reset-bridge-btn');
+
+        glbFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            glbFileName.textContent = file.name;
+            const url = URL.createObjectURL(file);
+
+            glbLoader.load(url, (gltf) => {
+                if (customBridgeModel) {
+                    bridgeContainer.remove(customBridgeModel);
+                }
+                defaultBridgeGroup.visible = false;
+
+                const model = gltf.scene;
+                // Auto-normalize size to fit the 14.4-unit river gap nicely
+                const box = new THREE.Box3().setFromObject(model);
+                const size = new THREE.Vector3();
+                const center = new THREE.Vector3();
+                box.getSize(size);
+                box.getCenter(center);
+
+                const maxHoriz = Math.max(size.x, size.z) || 1;
+                const scaleFactor = 14.5 / maxHoriz;
+                model.scale.setScalar(scaleFactor);
+
+                // Recompute bounding box after scale
+                const scaledBox = new THREE.Box3().setFromObject(model);
+                const scaledCenter = new THREE.Vector3();
+                scaledBox.getCenter(scaledCenter);
+
+                model.position.x = -scaledCenter.x;
+                model.position.z = -scaledCenter.z;
+                model.position.y = -scaledBox.min.y - 0.15;
+
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+
+                customBridgeModel = model;
+                bridgeContainer.add(customBridgeModel);
+
+                glbStatus.classList.remove('hidden');
+                resetBridgeBtn.classList.remove('hidden');
+                URL.revokeObjectURL(url);
+            }, undefined, (err) => {
+                console.error('GLB yükleme hatası:', err);
+                glbFileName.textContent = 'Hata: Geçersiz .glb dosyası';
+            });
+        });
+
+        resetBridgeBtn.addEventListener('click', () => {
+            if (customBridgeModel) {
+                bridgeContainer.remove(customBridgeModel);
+                customBridgeModel = null;
+            }
+            defaultBridgeGroup.visible = true;
+            glbFileName.textContent = 'Henüz dosya seçilmedi';
+            glbStatus.classList.add('hidden');
+            resetBridgeBtn.classList.add('hidden');
+            glbFileInput.value = '';
+        });
+
+        // --- STAGE 2: STONE-PAVED GARDEN WALKWAY, LANTERNS & FLOWERBEDS ---
+        const stonePathMat = new THREE.MeshStandardMaterial({ color: 0x4f485e, roughness: 0.85 });
+        const lanternGlowMat = new THREE.MeshBasicMaterial({ color: 0xffd28e });
+        const lanternPostMat = new THREE.MeshStandardMaterial({ color: 0x221c2b, metalness: 0.6, roughness: 0.4 });
+        const bushMat = new THREE.MeshStandardMaterial({ color: 0x1d3b2a, roughness: 0.9 });
+        const roseColors = [0xff4d79, 0xff85a1, 0xd946ef, 0xfbbf24];
+
+        // Stepping stones from z = -8 to z = -46
+        for (let z = -8; z >= -46; z -= 1.35) {
+            const stone = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.15 + Math.sin(z) * 0.15, 1.25, 0.12, 7),
+                stonePathMat
+            );
+            stone.position.set(Math.sin(z * 0.4) * 0.25, 0.04, z);
+            stone.rotation.y = z * 0.5;
+            stone.receiveShadow = true;
+            scene.add(stone);
+        }
+
+        // Lanterns & Flowerbeds lining both sides of the walkway
+        const lanternLights = [];
+        for (let z = -10; z >= -44; z -= 6.5) {
+            [-2.6, 2.6].forEach((xSide, idx) => {
+                // Lantern Post
+                const postGroup = new THREE.Group();
+                postGroup.position.set(xSide, 0, z);
+
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 2.4, 8), lanternPostMat);
+                pole.position.y = 1.2;
+                pole.castShadow = true;
+                postGroup.add(pole);
+
+                const lanternBox = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 0.42, 6), lanternGlowMat);
+                lanternBox.position.y = 2.5;
+                postGroup.add(lanternBox);
+
+                const cap = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.22, 6), lanternPostMat);
+                cap.position.y = 2.8;
+                postGroup.add(cap);
+
+                scene.add(postGroup);
+
+                // Add warm PointLight on alternating lanterns for performance + atmosphere
+                if ((Math.abs(Math.round(z)) + idx) % 2 === 0) {
+                    const pLight = new THREE.PointLight(0xffb469, 1.35, 11);
+                    pLight.position.set(xSide, 2.5, z);
+                    scene.add(pLight);
+                    lanternLights.push(pLight);
+                }
+
+                // Flowerbed cluster between lanterns
+                for (let f = 0; f < 5; f++) {
+                    const fz = z - 1.2 - f * 1.0;
+                    const fx = xSide + (xSide > 0 ? 0.5 : -0.5) + (Math.random() - 0.5) * 0.8;
+                    const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45 + Math.random() * 0.2, 1), bushMat);
+                    bush.position.set(fx, 0.25, fz);
+                    scene.add(bush);
+
+                    const blossom = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.11, 8, 8),
+                        new THREE.MeshBasicMaterial({ color: roseColors[Math.floor(Math.random() * roseColors.length)] })
+                    );
+                    blossom.position.set(fx, 0.62, fz);
+                    scene.add(blossom);
+                }
+            });
+        }
+
+        // --- STAGE 3: THE ORNATE STONE ARCHWAY & SWIRLING PURPLE PORTAL ---
+        const portalZ = -48;
+        const archGroup = new THREE.Group();
+        archGroup.position.set(0, 0, portalZ);
+        scene.add(archGroup);
+
+        const archStoneMat = new THREE.MeshStandardMaterial({
+            color: 0x3a324a,
+            roughness: 0.7,
+            metalness: 0.15
+        });
+        const runeGoldMat = new THREE.MeshStandardMaterial({
+            color: 0xd8b4fe,
+            emissive: 0x9333ea,
+            emissiveIntensity: 0.8
+        });
+
+        // Left & Right Stone Pillars
+        [-2.3, 2.3].forEach(px => {
+            const col = new THREE.Mesh(new THREE.BoxGeometry(1.1, 5.4, 1.2), archStoneMat);
+            col.position.set(px, 2.7, 0);
+            col.castShadow = true;
+            col.receiveShadow = true;
+            archGroup.add(col);
+
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.6, 1.55), archStoneMat);
+            plinth.position.set(px, 0.3, 0);
+            archGroup.add(plinth);
+        });
+
+        // Top Ornate Arch Ring
+        const archTop = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.58, 12, 32, Math.PI), archStoneMat);
+        archTop.position.set(0, 5.2, 0);
+        archTop.castShadow = true;
+        archGroup.add(archTop);
+
+        // Glowing Inner Portal Frame
+        const innerFrame = new THREE.Mesh(new THREE.TorusGeometry(2.15, 0.12, 12, 48), runeGoldMat);
+        innerFrame.position.set(0, 3.2, 0);
+        innerFrame.scale.set(0.85, 1.35, 1);
+        archGroup.add(innerFrame);
+
+        // Swirling Purple Portal Custom Shader
+        const portalUniforms = {
+            uTime: { value: 0 },
+            uColorCore: { value: new THREE.Color(0xf5d0fe) },
+            uColorMid: { value: new THREE.Color(0xa855f7) },
+            uColorOuter: { value: new THREE.Color(0x4c1d95) }
+        };
+
+        const portalMat = new THREE.ShaderMaterial({
+            transparent: true,
+            side: THREE.DoubleSide,
+            uniforms: portalUniforms,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float uTime;
+                uniform vec3 uColorCore;
+                uniform vec3 uColorMid;
+                uniform vec3 uColorOuter;
+                varying vec2 vUv;
+
+                void main() {
+                    vec2 centered = (vUv - 0.5) * 2.0;
+                    float dist = length(centered);
+                    float angle = atan(centered.y, centered.x);
+
+                    // Swirling vortex pattern
+                    float swirl = sin(angle * 4.0 + dist * 10.0 - uTime * 3.5) * 0.5 + 0.5;
+                    float ripples = sin(dist * 18.0 - uTime * 4.5) * 0.5 + 0.5;
+                    float pattern = mix(swirl, ripples, 0.45);
+
+                    vec3 color = mix(uColorOuter, uColorMid, pattern);
+                    color = mix(color, uColorCore, smoothstep(0.65, 0.0, dist) * (0.6 + 0.4 * swirl));
+
+                    float alpha = smoothstep(1.0, 0.72, dist);
+                    gl_FragColor = vec4(color, alpha * 0.94);
+                }
+            `
+        });
+
+        const portalMesh = new THREE.Mesh(new THREE.CircleGeometry(2.1, 48), portalMat);
+        portalMesh.position.set(0, 3.2, 0);
+        portalMesh.scale.set(0.85, 1.35, 1);
+        archGroup.add(portalMesh);
+
+        // Portal PointLight casting purple glow onto the walkway
+        const portalLight = new THREE.PointLight(0xc026d3, 3.8, 22);
+        portalLight.position.set(0, 3.2, portalZ + 1.5);
+        scene.add(portalLight);
+
+        // ==========================================
+        // 4. FIREFLIES, ROSE PETALS & CELEBRATION HEARTS
+        // ==========================================
+        // Glowing Fireflies
+        const fireflyCount = 260;
+        const fireflyGeo = new THREE.BufferGeometry();
+        const fireflyPos = new Float32Array(fireflyCount * 3);
+        const fireflySeeds = new Float32Array(fireflyCount);
+
+        for (let i = 0; i < fireflyCount; i++) {
+            fireflyPos[i * 3] = (Math.random() - 0.5) * 38;
+            fireflyPos[i * 3 + 1] = 0.6 + Math.random() * 5.5;
+            fireflyPos[i * 3 + 2] = 18 - Math.random() * 72;
+            fireflySeeds[i] = Math.random() * Math.PI * 2;
+        }
+        fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
+        const fireflyMat = new THREE.PointsMaterial({
+            color: 0xffd166,
+            size: 0.24,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
+        });
+        const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+        scene.add(fireflies);
+
+        // Floating Rose Petals
+        const petalCount = 140;
+        const petalGeo = new THREE.PlaneGeometry(0.16, 0.22);
+        const petalMat = new THREE.MeshBasicMaterial({
+            color: 0xff4d88,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85
+        });
+        const petals = [];
+        for (let i = 0; i < petalCount; i++) {
+            const p = new THREE.Mesh(petalGeo, petalMat);
+            p.position.set(
+                (Math.random() - 0.5) * 24,
+                1 + Math.random() * 8,
+                16 - Math.random() * 68
+            );
+            p.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+            p.userData = {
+                speedY: 0.4 + Math.random() * 0.5,
+                swayPhase: Math.random() * Math.PI * 2
+            };
+            scene.add(p);
+            petals.push(p);
+        }
+
+        // 3D Heart Shape Generator for Finale Celebration
+        function createHeartMesh(colorHex) {
+            const x = 0, y = 0;
+            const heartShape = new THREE.Shape();
+            heartShape.moveTo(x + 0.25, y + 0.25);
+            heartShape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.20, y, x, y);
+            heartShape.bezierCurveTo(x - 0.30, y, x - 0.30, y + 0.35, x - 0.30, y + 0.35);
+            heartShape.bezierCurveTo(x - 0.30, y + 0.55, x - 0.10, y + 0.77, x + 0.25, y + 0.95);
+            heartShape.bezierCurveTo(x + 0.60, y + 0.77, x + 0.80, y + 0.55, x + 0.80, y + 0.35);
+            heartShape.bezierCurveTo(x + 0.80, y + 0.35, x + 0.80, y, x + 0.50, y);
+            heartShape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+
+            const geom = new THREE.ShapeGeometry(heartShape);
+            geom.center();
+            const mat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.scale.set(0.45, -0.45, 0.45);
+            return mesh;
+        }
+
+        const celebrationParticles = [];
+        function spawnConfessionCelebration() {
+            const colors = [0xff2a85, 0xff75b5, 0xd946ef, 0xfbbf24, 0xffffff];
+            for (let i = 0; i < 95; i++) {
+                const heart = createHeartMesh(colors[i % colors.length]);
+                heart.position.set(
+                    camera.position.x + (Math.random() - 0.5) * 6,
+                    camera.position.y - 1 + Math.random() * 2,
+                    camera.position.z - 5 - Math.random() * 6
+                );
+                heart.userData = {
+                    vel: new THREE.Vector3(
+                        (Math.random() - 0.5) * 6,
+                        2.5 + Math.random() * 5.5,
+                        (Math.random() - 0.5) * 6
+                    ),
+                    rotSpeed: (Math.random() - 0.5) * 4
+                };
+                scene.add(heart);
+                celebrationParticles.push(heart);
+            }
+        }
+
+        // ==========================================
+        // 5. PLAYER MOVEMENT, CAMERA LOOK & GAMEPLAY FLOW
+        // ==========================================
+        const player = {
+            pos: new THREE.Vector3(0, 1.75, 14.5),
+            yaw: 0,
+            pitch: 0.04,
+            speed: 5.8,
+            inFinale: false,
+            celebrating: false
+        };
+
+        camera.position.copy(player.pos);
+
+        // Input state
+        const keys = { forward: false, backward: false, left: false, right: false };
+
+        window.addEventListener('keydown', (e) => {
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': keys.forward = true; break;
+                case 'KeyS': case 'ArrowDown': keys.backward = true; break;
+                case 'KeyA': case 'ArrowLeft': keys.left = true; break;
+                case 'KeyD': case 'ArrowRight': keys.right = true; break;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': keys.forward = false; break;
+                case 'KeyS': case 'ArrowDown': keys.backward = false; break;
+                case 'KeyA': case 'ArrowLeft': keys.left = false; break;
+                case 'KeyD': case 'ArrowRight': keys.right = false; break;
+            }
+        });
+
+        // On-Screen Touch / Mouse D-Pad Bindings
+        function bindDpadButton(id, dirKey) {
+            const btn = document.getElementById(id);
+            const startMove = (e) => { e.preventDefault(); keys[dirKey] = true; };
+            const stopMove = (e) => { e.preventDefault(); keys[dirKey] = false; };
+            btn.addEventListener('mousedown', startMove);
+            btn.addEventListener('mouseup', stopMove);
+            btn.addEventListener('mouseleave', stopMove);
+            btn.addEventListener('touchstart', startMove, { passive: false });
+            btn.addEventListener('touchend', stopMove, { passive: false });
+        }
+        bindDpadButton('btn-move-forward', 'forward');
+        bindDpadButton('btn-move-backward', 'backward');
+        bindDpadButton('btn-move-left', 'left');
+        bindDpadButton('btn-move-right', 'right');
+
+        // PointerLock + Drag/Touch Look Support
+        let isDraggingLook = false;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
+
+        renderer.domElement.addEventListener('click', () => {
+            if (player.inFinale) return;
+            if (document.pointerLockElement !== renderer.domElement && renderer.domElement.requestPointerLock) {
+                try {
+                    renderer.domElement.requestPointerLock();
+                } catch (err) {
+                    // Fallback to drag look if sandboxed
+                }
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (player.inFinale) return;
+            if (document.pointerLockElement === renderer.domElement) {
+                player.yaw -= e.movementX * 0.0022;
+                player.pitch -= e.movementY * 0.0022;
+                player.pitch = Math.max(-0.65, Math.min(0.75, player.pitch));
+            } else if (isDraggingLook) {
+                const dx = e.clientX - lastPointerX;
+                const dy = e.clientY - lastPointerY;
+                lastPointerX = e.clientX;
+                lastPointerY = e.clientY;
+                player.yaw -= dx * 0.004;
+                player.pitch -= dy * 0.004;
+                player.pitch = Math.max(-0.65, Math.min(0.75, player.pitch));
+            }
+        });
+
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isDraggingLook = true;
+            lastPointerX = e.clientX;
+            lastPointerY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => { isDraggingLook = false; });
+
+        // Touch drag to look around on mobile
+        renderer.domElement.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDraggingLook = true;
+                lastPointerX = e.touches[0].clientX;
+                lastPointerY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        renderer.domElement.addEventListener('touchmove', (e) => {
+            if (!isDraggingLook || player.inFinale || e.touches.length !== 1) return;
+            const dx = e.touches[0].clientX - lastPointerX;
+            const dy = e.touches[0].clientY - lastPointerY;
+            lastPointerX = e.touches[0].clientX;
+            lastPointerY = e.touches[0].clientY;
+            player.yaw -= dx * 0.005;
+            player.pitch -= dy * 0.005;
+            player.pitch = Math.max(-0.65, Math.min(0.75, player.pitch));
+        }, { passive: true });
+
+        renderer.domElement.addEventListener('touchend', () => { isDraggingLook = false; });
+
+        // --- ROMANTIC CHECKPOINTS ALONG THE WALKWAY ---
+        const checkpoints = [
+            { zMax: 6.5, zMin: -6.5, text: "Seninle geçirdiğim her an, bu köprü gibi kalbime uzanıyor..." },
+            { zMax: -11, zMin: -21, text: "Gülüşün en karanlık gecemi bile yıldızlarla aydınlatıyor..." },
+            { zMax: -23, zMin: -33, text: "Attığım her adımda yanımda sadece senin olmanı diliyorum..." },
+            { zMax: -35, zMin: -44.5, text: "Ve şimdi bu kapının ardında sana hayatımın en güzel sorusu var..." }
+        ];
+        let activeNoteIndex = -1;
+        const noteContainer = document.getElementById('romantic-note-container');
+        const noteTextEl = document.getElementById('romantic-note-text');
+        const stageTextEl = document.getElementById('stage-text');
+
+        function updateStoryProgress(z) {
+            // Update Top-Right Stage Badge
+            if (z > -7.2) {
+                stageTextEl.textContent = "1. Aşama: Romantik Köprü";
+            } else if (z > -41) {
+                stageTextEl.textContent = "2. Aşama: Fenerli Yürüyüş Yolu";
+            } else {
+                stageTextEl.textContent = "3. Aşama: Mor Portal Kapısı";
+            }
+
+            // Check floating romantic notes
+            let foundIdx = -1;
+            for (let i = 0; i < checkpoints.length; i++) {
+                if (z <= checkpoints[i].zMax && z >= checkpoints[i].zMin) {
+                    foundIdx = i;
+                    break;
+                }
+            }
+
+            if (foundIdx !== -1 && foundIdx !== activeNoteIndex) {
+                activeNoteIndex = foundIdx;
+                noteTextEl.textContent = `"${checkpoints[foundIdx].text}"`;
+                noteContainer.classList.remove('opacity-0', '-translate-y-4');
+                noteContainer.classList.add('opacity-100', 'translate-y-0');
+            } else if (foundIdx === -1 && activeNoteIndex !== -1) {
+                activeNoteIndex = -1;
+                noteContainer.classList.remove('opacity-100', 'translate-y-0');
+                noteContainer.classList.add('opacity-0', '-translate-y-4');
+            }
+
+            // Trigger Stage 5 Finale when stepping into the Purple Portal
+            if (z <= portalZ + 1.35 && Math.abs(player.pos.x) < 2.2 && !player.inFinale) {
+                triggerPortalFinale();
+            }
+        }
+
+        function triggerPortalFinale() {
+            player.inFinale = true;
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            noteContainer.classList.add('opacity-0');
+            document.getElementById('hud-controls').classList.add('opacity-0');
+            document.getElementById('crosshair').classList.add('opacity-0');
+
+            // Smooth camera sweep into starry dimension
+            const modal = document.getElementById('confession-modal');
+            const card = document.getElementById('confession-card');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            }, 350);
+        }
+
+        // ==========================================
+        // 6. UI EVENT LISTENERS & INTERACTIONS
+        // ==========================================
+        // Start Game Button
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audioEngine.resume();
+            const startOverlay = document.getElementById('start-overlay');
+            startOverlay.classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('hud-controls').classList.remove('opacity-0');
+            document.getElementById('crosshair').classList.remove('opacity-0');
+
+            if (renderer.domElement.requestPointerLock) {
+                try {
+                    renderer.domElement.requestPointerLock();
+                } catch (e) {}
+            }
+        });
+
+        // Collapsible GLB Panel Toggle
+        const toggleGlbBtn = document.getElementById('toggle-glb-panel');
+        const glbContent = document.getElementById('glb-panel-content');
+        const glbChevron = document.getElementById('glb-chevron');
+        toggleGlbBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            glbContent.classList.toggle('hidden');
+            glbChevron.classList.toggle('rotate-180');
+        });
+
+        // Audio Mute Toggle
+        const audioToggleBtn = document.getElementById('audio-toggle-btn');
+        const iconOn = document.getElementById('icon-sound-on');
+        const iconOff = document.getElementById('icon-sound-off');
+        audioToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const muted = audioEngine.toggleMute();
+            iconOn.classList.toggle('hidden', muted);
+            iconOff.classList.toggle('hidden', !muted);
+        });
+
+        // Playfully Dodging "Hayır" Button
+        const noBtn = document.getElementById('no-btn');
+        const playfulTexts = [
+            "Emin misin? 🥺",
+            "Bir daha düşün! 💕",
+            "Yakalayamazsın ki 😜",
+            "Kalbim kırılır ama...",
+            "Bence EVET demelisin ✨",
+            "Yanlış buton! 💖"
+        ];
+        let dodgeCount = 0;
+
+        function dodgeNoButton(e) {
+            if (e) e.preventDefault();
+            dodgeCount++;
+            noBtn.textContent = playfulTexts[dodgeCount % playfulTexts.length];
+            const randX = (Math.random() - 0.5) * 210;
+            const randY = (Math.random() - 0.5) * 130;
+            noBtn.style.transform = `translate(${randX}px, ${randY}px)`;
+        }
+        noBtn.addEventListener('mouseenter', dodgeNoButton);
+        noBtn.addEventListener('touchstart', dodgeNoButton, { passive: false });
+        noBtn.addEventListener('click', dodgeNoButton);
+
+        // "EVET! 💖" Celebration Button
+        document.getElementById('yes-btn').addEventListener('click', () => {
+            player.celebrating = true;
+            audioEngine.playCelebrationChord();
+            document.getElementById('confession-buttons').classList.add('hidden');
+            document.getElementById('celebration-message').classList.remove('hidden');
+            spawnConfessionCelebration();
+        });
+
+        // Explore Starry Sky After Celebration
+        document.getElementById('explore-more-btn').addEventListener('click', () => {
+            const modal = document.getElementById('confession-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => modal.classList.add('hidden'), 500);
+        });
+
+        // Window Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==========================================
+        // 7. MAIN ANIMATION LOOP
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1);
+            const elapsed = clock.getElapsedTime();
+
+            // 1. Update Portal Shader & Light Pulse
+            portalUniforms.uTime.value = elapsed;
+            portalLight.intensity = 3.5 + Math.sin(elapsed * 4.0) * 0.8;
+
+            // 2. Subtle Water Shimmer
+            waterMesh.material.emissiveIntensity = 0.48 + Math.sin(elapsed * 2.2) * 0.12;
+
+            // 3. Animate Fireflies
+            const fPositions = fireflies.geometry.attributes.position.array;
+            for (let i = 0; i < fireflyCount; i++) {
+                const seed = fireflySeeds[i];
+                fPositions[i * 3 + 1] += Math.sin(elapsed * 1.8 + seed) * 0.004;
+                fPositions[i * 3] += Math.cos(elapsed * 1.2 + seed) * 0.003;
+            }
+            fireflies.geometry.attributes.position.needsUpdate = true;
+
+            // 4. Animate Floating Rose Petals
+            for (let i = 0; i < petals.length; i++) {
+                const p = petals[i];
+                p.position.y -= p.userData.speedY * dt;
+                p.position.x += Math.sin(elapsed * 1.5 + p.userData.swayPhase) * 0.35 * dt;
+                p.rotation.x += 1.2 * dt;
+                p.rotation.y += 0.9 * dt;
+                if (p.position.y < 0.1) {
+                    p.position.y = 8.5;
+                }
+            }
+
+            // 5. Animate Celebration 3D Hearts
+            if (player.celebrating) {
+                if (Math.random() < 0.18) {
+                    // Continuous gentle heart fountain
+                    const heart = createHeartMesh(Math.random() > 0.5 ? 0xff3b9a : 0xd946ef);
+                    heart.position.set(
+                        camera.position.x + (Math.random() - 0.5) * 10,
+                        camera.position.y - 2,
+                        camera.position.z - 6 - Math.random() * 8
+                    );
+                    heart.userData = {
+                        vel: new THREE.Vector3((Math.random() - 0.5) * 2, 2.2 + Math.random() * 3, (Math.random() - 0.5) * 2),
+                        rotSpeed: (Math.random() - 0.5) * 3
+                    };
+                    scene.add(heart);
+                    celebrationParticles.push(heart);
+                }
+
+                for (let i = celebrationParticles.length - 1; i >= 0; i--) {
+                    const h = celebrationParticles[i];
+                    h.position.addScaledVector(h.userData.vel, dt);
+                    h.rotation.y += h.userData.rotSpeed * dt;
+                    if (h.position.y > 22) {
+                        scene.remove(h);
+                        celebrationParticles.splice(i, 1);
+                    }
+                }
+            }
+
+            // 6. Player Movement & Bridge Elevation Physics
+            if (!player.inFinale) {
+                const forwardVec = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+                const rightVec = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+
+                const moveDir = new THREE.Vector3();
+                if (keys.forward) moveDir.add(forwardVec);
+                if (keys.backward) moveDir.sub(forwardVec);
+                if (keys.right) moveDir.add(rightVec);
+                if (keys.left) moveDir.sub(rightVec);
+
+                if (moveDir.lengthSq() > 0) {
+                    moveDir.normalize();
+                    player.pos.addScaledVector(moveDir, player.speed * dt);
+                }
+
+                // Keep player within safe pathway bounds
+                player.pos.z = Math.max(portalZ + 1.0, Math.min(18.0, player.pos.z));
+                // Narrower lateral bounds over the river bridge so player doesn't fall into water
+                const maxHalfWidth = (player.pos.z <= 7.2 && player.pos.z >= -7.2) ? 1.45 : 4.5;
+                player.pos.x = Math.max(-maxHalfWidth, Math.min(maxHalfWidth, player.pos.x));
+
+                // Smoothly follow bridge arch height between z = +7.2 and z = -7.2
+                let groundHeight = 0;
+                if (player.pos.z <= 7.2 && player.pos.z >= -7.2) {
+                    const t = (7.2 - player.pos.z) / 14.4;
+                    groundHeight = Math.sin(t * Math.PI) * 1.35;
+                }
+
+                // Subtle walking head-bob
+                const bob = moveDir.lengthSq() > 0 ? Math.sin(elapsed * 10) * 0.045 : 0;
+                player.pos.y = THREE.MathUtils.lerp(player.pos.y, groundHeight + 1.75 + bob, 0.2);
+
+                camera.position.copy(player.pos);
+                const euler = new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ');
+                camera.quaternion.setFromEuler(euler);
+
+                updateStoryProgress(player.pos.z);
+            } else {
+                // Finale Camera Sweep: gently gaze upward toward the starry sky & portal glow
+                camera.position.z = THREE.MathUtils.lerp(camera.position.z, portalZ - 3.5, 0.02);
+                camera.position.y = THREE.MathUtils.lerp(camera.position.y, 4.2, 0.02);
+                camera.position.x = Math.sin(elapsed * 0.4) * 0.8;
+                camera.lookAt(0, 6.5, portalZ - 25);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function () {
+            animate();
+        };
+    </script>
+</body>
+</html>
